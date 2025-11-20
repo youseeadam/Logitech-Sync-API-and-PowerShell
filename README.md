@@ -1,2 +1,48 @@
 # Logitech-Sync-API-and-PowerShell
-This article goes through how to use Logitech Sync API with PowerShell
+This article goes through how to use Logitech Sync API with PowerShell  
+The Logitech Sync API is pretty easy to use with some basic understadning in PowerShell.  
+Before you start you need to get access to the APIs.  While these are free as a trial, there is a cost to use the APIs after the triel period.  You can find more about syncc here: https://sync.logitech.com/hub/syncguides.  
+The API falls under the support options, which can be found here: <A HREF="https://www.logitech.com/en-us/products/video-conferencing/room-solutions/select-comprehensive-service-plan.html?srsltid=AfmBOopaiYJMAUykdzW95g3wzgAjCtFVTvs6rwQ6xaZDtJbRr4S9i3sT#compare-plans">Logitech Services"</A>  
+## Gathering the information needed  
+You can find out how to get your certificates and OrgID from this article under the section <A HREF="https://sync.logitech.com/hub/syncguides/post/1-8-getting-started---api-quick-start-guide-QOU16rRoLmzBP9F">Generate your connection details in Sync</A>  
+1. The two certificates must have the same names, but different extensions.  As an example, rename the PrivateKey.pem to certifcate.key.  You will now have a certificate.pem and certificate.key both in the same folder
+2. Open a Terminal as admin and CD to the folder containing the two files.
+3. Merge the two files into a pfx format that can be imported into a Windows' computer certificate store. This will ask you for a password so the cert can be viewed later, don't forget this password.  `certutil -mergepfx .\certificate.pem .\certificate.pfx`  
+4. You can then import the cert.  It is important to figure out if you store it in the computer store (Enterprise) or user Store.  If you plan on doing any kind of automation, I.E. through a scheduled task when nobody is logged on, then it should go under Enterprise. A user will not be able te export the certifacte's private key. After the import the certificate name will be shown. `certutil -p <password> -importPFX Enterprise .\certificate.pfx`.  If you use Enterprise, the key will be located at Cert:\LocalMachine\Enterprise (this is important when creating the cert).  In some cases it may end up in the personal enterprise.  You can also import the PFX using the Certifcate MMC snapin.  
+5. If you want to view the certifcate information, for example to get the thumbprint (also known as the Cert Hash(Sha1)) you can run the following command: `certutil -p <Password> -dumppfx .\certificate.pfx`'  You will need the Hash later when making the connection to retrieve the key.
+## To Connect to Sync Cloud
+1. Get the certficate as a variable. The thumbprint.
+   ```PowerShell
+         $thumbprint = "0c65881beecbe5fcf0459f177436394694fxxxx"
+         $cert = Get-Item Cert:\LocalMachine\Enterprise\$thumbprint
+2. Create the connection URI
+   ```PowerShell
+      $OrgID = "oELr1HAMScRVcBluGumiVIsfFfLXXXX"
+      $apiuri = "https://api.sync.logitech.com/v1/org/$OrgID/place"
+3. Invoke the request
+   ```PowerShell
+      $return = Invoke-RestMethod -URI $apiUrl -Method Get -Certificate $cert -Headers @{ "Accept" = "Application/json" }  
+4. You will now have a JSON string you can work with, though it will not be easily readable.  So if you want to vew the reuslts to something more reasonable  you can do the following.  THe depth (7) is how many layers deep you want to recieve information.  To get the JSON spec, you can download it from your Sync Portal where you got the GroupID from. '$return | convertFrom-JSON -Depth 7`.
+## Doing something worhtwhile with the data
+It's great that you can get the information, but let's say you want to know any room that is not healthy.  
+1. To start I need to give a brief explination of what is returned.  
+2. When you return just `$return` you will get this: <img width="324" height="103" alt="image" src="https://github.com/user-attachments/assets/5f9807d2-fcfd-4b37-96da-f7be626c62d6" />  
+3. The parent of this is places, that is key (no pun intended).  
+4. This means, you can get actual data by running the following: `$return.places, which return each place, but with each device in that place under devices.<img width="2246" height="641" alt="image" src="https://github.com/user-attachments/assets/5b728f37-180a-4b34-a6db-a517a8eabb4d" />  
+5. So to get devices, you can run the following `$return.places.devices`  This will return all the devices, however, you will not know which room the device is in.<img width="1484" height="945" alt="image" src="https://github.com/user-attachments/assets/861e16ba-94c9-49a2-9ec2-f3e2b087d054" />  
+6. So for this example, we will pretend that our rooms healthStatus HAS issues.  We can return that information with the following script. For purposes of example, I am choising to healtStatus of no issues.  In the real world, you would pick -neq "NoIssues"  
+```PowerShell
+   $json.places | ForEach-Object {
+     $place = $_
+     $place.devices | Where-Object { $_.healthStatus -eq "NoIssues" } | ForEach-Object {
+         [PSCustomObject]@{
+             PlaceName  = $place.name
+             DeviceName = $_.name
+             Health     = $_.healthStatus
+         }
+     }
+ }
+ ```
+7. This would return the following: <img width="632" height="168" alt="image" src="https://github.com/user-attachments/assets/5b4566d1-ea92-488a-bf7c-8cc9b164e139" />  
+## So now what
+Once you can get information from the API, the world is your oyster.  You can send the results off to EventViewer, where you can then use Performance MOntiroing to watch for an event ID you created to send an email. Or use an existing device monitor to do whatever when it sees that event ID.
