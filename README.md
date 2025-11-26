@@ -46,3 +46,9 @@ It's great that you can get the information, but let's say you want to know any 
 7. This would return the following: <img width="632" height="168" alt="image" src="https://github.com/user-attachments/assets/5b4566d1-ea92-488a-bf7c-8cc9b164e139" />  
 ## So now what
 Once you can get information from the API, the world is your oyster.  You can send the results off to EventViewer, where you can then use Performance MOntiroing to watch for an event ID you created to send an email. Or use an existing device monitor to do whatever when it sees that event ID.
+## Identifying you certifcate in the chain
+If you have multiple org ids in Sync, you will end up with a few certficates, keeping track of that can be tricky, but there is a method to figuring it out.  
+The Subject of the certifcate has what you need.  The CN is the certifcate being used and the O is your Org ID.  This follows what you would expect.  
+<img width="804" height="537" alt="image" src="https://github.com/user-attachments/assets/90505bc4-c02b-4f58-b84f-15f4872bc748" />
+
+
