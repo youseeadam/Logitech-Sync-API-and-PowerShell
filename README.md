@@ -50,5 +50,13 @@ Once you can get information from the API, the world is your oyster.  You can se
 If you have multiple org ids in Sync, you will end up with a few certficates, keeping track of that can be tricky, but there is a method to figuring it out.  
 The Subject of the certifcate has what you need.  The CN is the certifcate being used and the O is your Org ID.  This follows what you would expect.  
 <img width="804" height="537" alt="image" src="https://github.com/user-attachments/assets/90505bc4-c02b-4f58-b84f-15f4872bc748" />
+### Finding your cert the easy way
+You have to know the OrgID to connect, but with your cert in a the certficate store, you can find the right cert pretty easy.  
+This means you just need to store a the Org Name and ID in a table.  It would be even better if the cert contained the org name, but that is a problem to tackle later.  
+Simply run the following PowerShell to get the cert. you don't need to know the thumbprint, just the orgID  
+```PowerShell
+   $cert = Get-ChildItem Cert:\LocalMachine\Enterprise\ | Where-Object {$_.Subject -like "*3oELr1HAMScRVcBluGumixxxxxxxxx"}
+```
+You can use the CN if you want to use that, but then you also have to map the OrgID to the Cert, which is a little more work  
 
 
