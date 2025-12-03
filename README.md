@@ -58,5 +58,14 @@ Simply run the following PowerShell to get the cert. you don't need to know the 
    $cert = Get-ChildItem Cert:\LocalMachine\Enterprise\ | Where-Object {$_.Subject -like "*3oELr1HAMScRVcBluGumixxxxxxxxx"}
 ```
 You can use the CN if you want to use that, but then you also have to map the OrgID to the Cert, which is a little more work  
+BUT... We are going to make this easier, let's say you can only remember an Org Name.  
+As you have seen with the import process the Friendy Name is blank, it would be easier if it had a value, well good news you can!  You just need to set the FriendName attribute
+```PowerShell
+$cert.FriendlyName = "Logitech Demo"
+```
+Now to get the cert, you can change the query to look like this:
+```PowerShell
+$cert = Get-ChildItem Cert:\LocalMachine\Enterprise\ | Where-Object {$_.FriendlyName -like "Logitech Demo"}
+```
 
 
