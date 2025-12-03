@@ -109,6 +109,12 @@ foreach ($place in $return.places) {
                 Write-Host ""
                 continue
             }
+            # Print IP address if available
+            if ($device.PSObject.Properties.Name -contains 'network' -and $device.network) {
+                if ($device.network.PSObject.Properties.Name -contains 'ip') {
+                    Write-Host "    IP Address: $($device.network.ip)"
+                }
+            }
 
             # Sensor readings
             if ($device.PSObject.Properties.Name -contains 'sensors' -and $device.sensors) {
@@ -130,6 +136,19 @@ foreach ($place in $return.places) {
 ```
 and what you will end up with is something like this.  You can extend this information into writing into a an Event View Log that you could then subscribe to and then take action on.  
 <img width="500" height="340" alt="image" src="https://github.com/user-attachments/assets/183515f2-86b4-402a-b79f-1047e2b4fe12" />
-
-
+## Understanding the Projections
+The API doesn’t automatically give you all the details about rooms and devices. Instead, it uses a projection parameter, which is like a shopping list of the fields you want back. If you don’t ask for them, you’ll only get the bare minimum (like IDs).  
+If you look at the openapi spec, and search for projections, they are listed there  
+* place.info → basic details about the room or desk (name, location, group)  
+* place.occupancy → how many people are in the room right now  
+* place.device → makes sure devices are included at all    
+* place.device.info → device details (name, version, network info like IP address)  
+* place.device.status → whether the device is Online, Offline, or InUse  
+* place.device.sensors → the actual environmental readings (CO₂, temperature, humidity, etc.)  
+From that list, I picked the ones that matched what you wanted:  
+* Sensors → place.device.sensors  
+* Status → place.device.status (so we can print “offline”)  
+* IP address → place.device.info (because network info lives there)  
+* Context → place.info and place.occupancy (so you know where the readings came from and how many people were in the room)  
+## working with the other schema options
 
