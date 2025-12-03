@@ -7,9 +7,20 @@ The API falls under the support options, which can be found here: <A HREF="https
 You can find out how to get your certificates and OrgID from this article under the section <A HREF="https://sync.logitech.com/hub/syncguides/post/1-8-getting-started---api-quick-start-guide-QOU16rRoLmzBP9F">Generate your connection details in Sync</A>  
 1. The two certificates must have the same names, but different extensions.  As an example, rename the PrivateKey.pem to certifcate.key.  You will now have a certificate.pem and certificate.key both in the same folder
 2. Open a Terminal as admin and CD to the folder containing the two files.
-3. Merge the two files into a pfx format that can be imported into a Windows' computer certificate store. This will ask you for a password so the cert can be viewed later, don't forget this password.  `certutil -mergepfx .\certificate.pem .\certificate.pfx`  
-4. You can then import the cert.  It is important to figure out if you store it in the computer store (Enterprise) or user Store.  If you plan on doing any kind of automation, I.E. through a scheduled task when nobody is logged on, then it should go under Enterprise. A user will not be able te export the certifacte's private key. After the import the certificate name will be shown. `certutil -p <password> -importPFX Enterprise .\certificate.pfx`.  If you use Enterprise, the key will be located at Cert:\LocalMachine\Enterprise (this is important when creating the cert).  In some cases it may end up in the personal enterprise.  You can also import the PFX using the Certifcate MMC snapin.  
-5. If you want to view the certifcate information, for example to get the thumbprint (also known as the Cert Hash(Sha1)) you can run the following command: `certutil -p <Password> -dumppfx .\certificate.pfx`'  You will need the Hash later when making the connection to retrieve the key.
+3. Merge the two files into a pfx format that can be imported into a Windows' computer certificate store. This will ask you for a password so the cert can be viewed later, don't forget this password.
+```PowerShell
+ certutil -mergepfx .\certificate.pem .\certificate.pfx
+``` 
+5. You can then import the cert.  It is important to figure out if you store it in the computer store (Enterprise) or user Store.  If you plan on doing any kind of automation, I.E. through a scheduled task when nobody is logged on, then it should go under Enterprise. A user will not be able te export the certifacte's private key. After the import the certificate name will be shown.
+```PowerShell
+certutil -p <password> -importPFX Enterprise .\certificate.pfx
+```
+If you use Enterprise, the key will be located at Cert:\LocalMachine\Enterprise (this is important when creating the cert).  In some cases it may end up in the personal enterprise.  You can also import the PFX using the Certifcate MMC snapin.  
+6. If you want to view the certifcate information, for example to get the thumbprint (also known as the Cert Hash(Sha1)) you can run the following command:  
+```PowerShell
+certutil -p <Password> -dumppfx .\certificate.pfx`'
+```
+  You will need the Hash later when making the connection to retrieve the key.
 ## To Connect to Sync Cloud
 1. Get the certficate as a variable. The thumbprint.
    ```PowerShell
@@ -21,16 +32,58 @@ You can find out how to get your certificates and OrgID from this article under 
       $apiuri = "https://api.sync.logitech.com/v1/org/$OrgID/place"
 3. Invoke the request
    ```PowerShell
-      $return = Invoke-RestMethod -URI $apiUri -Method Get -Certificate $cert -Headers @{ "Accept" = "Application/json" }  
-4. You will now have a JSON string you can work with, though it will not be easily readable.  So if you want to vew the reuslts to something more reasonable  you can do the following.  THe depth (7) is how many layers deep you want to recieve information.  To get the JSON spec, you can download it from your Sync Portal where you got the GroupID from. '$return | convertFrom-JSON -Depth 7`.
+      $return = Invoke-RestMethod -URI $apiUri -Method Get -Certificate $cert -Headers @{ "Accept" = "Application/json" }
+   ```
+## Making it easier to connect
+That's not an easy way to remember connections, you have to know the OrgID and thumbprint and store it in a table.  Here is something to help make it easier so you only need to remember your Org Name or any other simple name. When you look at the certificate store, you get this, not very helpful.  
+<img width="468" height="145" alt="image" src="https://github.com/user-attachments/assets/45514125-bbd5-43fb-985a-c0018ad5ce02" />  
+Let's give it a friendly name
+1.  You need to get the certificate thumbprint: 
+   ```PowerShell
+   certutil -p <Password> -dumppfx .\certificate.pfx`'
+   ```
+2. That will return something like this:   
+   <img width="611" height="172" alt="image" src="https://github.com/user-attachments/assets/f1f99a85-c3cc-40db-b4d8-ce6e76596fef" />  
+1.  What is needed from here is the Cert Hash, or Thumbprint (which I mentioned above).  
+1.  You can now give the cert a friendly name, first you have to get the cert as an object then assign it a friendly name.  
+   ```PowerShell
+   $cert = Get-ChildItem Cert:\LocalMachine\Enterprise\ | Where-Object {$_.Subject -like "*0c65881beecbe5fcf0459f17743639xxxxxxxx"}
+   $cert.FriendlyName = "Logitech Demo"
+   ```
+5. This will now give you a friendly name to work with  
+   <img width="462" height="144" alt="image" src="https://github.com/user-attachments/assets/30924ef4-ac98-4b41-b205-f02088287a6d" />  
+7.  You can now get the cert details by just knowing the Friendly Name
+   ```PowerShell
+   $cert = Get-ChildItem Cert:\LocalMachine\Enterprise\ | Where-Object {$_.FriendlyName -like "Logitech Demo"}
+   ```
+#### Identifying the OrgID from the cert
+If you have multiple org ids in Sync, you will end up with a few certficates, keeping track of that can be tricky, but there is a method to figuring it out.  
+The Subject of the certifcate has what you need.  The CN is the certifcate being used and the O is your Org ID.  This follows what you would expect.  
+<img width="804" height="537" alt="image" src="https://github.com/user-attachments/assets/90505bc4-c02b-4f58-b84f-15f4872bc748" />  
+To extract the OrgID from the cert you just need to parse it from the certifcate.  
+1. We already have `$cert` from above from the friendly name.  
+2. Parse out the string to get the orgID.  
+```PowerShell
+$orgID = ((($cert | select Subject).Subject) -split (", O="))[1]
+```
+### Putting this all together
+```PowerShell
+$cert = Get-ChildItem Cert:\LocalMachine\Enterprise\ | Where-Object {$_.FriendlyName -like "Logitech Demo"}
+$orgID = ((($cert | select Subject).Subject) -split (", O="))[1]
+$apiuri = "https://api.sync.logitech.com/v1/org/$OrgID/place"
+$return = Invoke-RestMethod -URI $apiUri -Method Get -Certificate $cert -Headers @{ "Accept" = "Application/json" }
+```
 ## Doing something worhtwhile with the data
 It's great that you can get the information, but let's say you want to know any room that is not healthy.  
 1. To start I need to give a brief explination of what is returned.  
-2. When you return just `$return` you will get this: <img width="324" height="103" alt="image" src="https://github.com/user-attachments/assets/5f9807d2-fcfd-4b37-96da-f7be626c62d6" />  
-3. The parent of this is places, that is key (no pun intended).  
-4. This means, you can get actual data by running the following: `$return.places, which return each place, but with each device in that place under devices.<img width="2246" height="641" alt="image" src="https://github.com/user-attachments/assets/5b728f37-180a-4b34-a6db-a517a8eabb4d" />  
-5. So to get devices, you can run the following `$return.places.devices`  This will return all the devices, however, you will not know which room the device is in.<img width="1484" height="945" alt="image" src="https://github.com/user-attachments/assets/861e16ba-94c9-49a2-9ec2-f3e2b087d054" />  
-6. So for this example, we will pretend that our rooms healthStatus HAS issues.  We can return that information with the following script. For purposes of example, I am choising to healtStatus of no issues.  In the real world, you would pick -neq "NoIssues"  
+2. When you return just `$return` you will get this:  
+   <img width="324" height="103" alt="image" src="https://github.com/user-attachments/assets/5f9807d2-fcfd-4b37-96da-f7be626c62d6" />  
+4. The parent of this is places, that is key (no pun intended).  
+5. This means, you can get actual data by running the following: `$return.places, which return each place, but with each device in that place under devices.
+   <img width="2246" height="641" alt="image" src="https://github.com/user-attachments/assets/5b728f37-180a-4b34-a6db-a517a8eabb4d" />  
+6. So to get devices, you can run the following `$return.places.devices`  This will return all the devices, however, you will not know which room the device is in.
+   <img width="1484" height="945" alt="image" src="https://github.com/user-attachments/assets/861e16ba-94c9-49a2-9ec2-f3e2b087d054" />  
+8. So for this example, we will pretend that our rooms healthStatus HAS issues.  We can return that information with the following script. For purposes of example, I am choising to healtStatus of no issues.  In the real world, you would pick -neq "NoIssues"  
 ```PowerShell
    $json.places | ForEach-Object {
      $place = $_
@@ -43,35 +96,11 @@ It's great that you can get the information, but let's say you want to know any 
      }
  }
  ```
-7. This would return the following: <img width="632" height="168" alt="image" src="https://github.com/user-attachments/assets/5b4566d1-ea92-488a-bf7c-8cc9b164e139" />  
+7. This would return the following:
+   <img width="632" height="168" alt="image" src="https://github.com/user-attachments/assets/5b4566d1-ea92-488a-bf7c-8cc9b164e139" />  
 ## So now what
 Once you can get information from the API, the world is your oyster.  You can send the results off to EventViewer, where you can then use Performance MOntiroing to watch for an event ID you created to send an email. Or use an existing device monitor to do whatever when it sees that event ID.
-## Identifying you certifcate in the chain
-If you have multiple org ids in Sync, you will end up with a few certficates, keeping track of that can be tricky, but there is a method to figuring it out.  
-The Subject of the certifcate has what you need.  The CN is the certifcate being used and the O is your Org ID.  This follows what you would expect.  
-<img width="804" height="537" alt="image" src="https://github.com/user-attachments/assets/90505bc4-c02b-4f58-b84f-15f4872bc748" />
-### Finding your cert the easy way
-You have to know the OrgID to connect, but with your cert in a the certficate store, you can find the right cert pretty easy.  
-This means you just need to store a the Org Name and ID in a table.  It would be even better if the cert contained the org name, but that is a problem to tackle later.  
-Simply run the following PowerShell to get the cert. you don't need to know the thumbprint, just the orgID  
-```PowerShell
-   $cert = Get-ChildItem Cert:\LocalMachine\Enterprise\ | Where-Object {$_.Subject -like "*3oELr1HAMScRVcBluGumixxxxxxxxx"}
-```
-You can use the CN if you want to use that, but then you also have to map the OrgID to the Cert, which is a little more work  
-BUT... We are going to make this easier, let's say you can only remember an Org Name.  
-As you have seen with the import process the Friendy Name is blank, it would be easier if it had a value, well good news you can!  You just need to set the FriendName attribute
-```PowerShell
-$cert.FriendlyName = "Logitech Demo"
-```
-Now to get the cert, you can change the query to look like this:
-```PowerShell
-$cert = Get-ChildItem Cert:\LocalMachine\Enterprise\ | Where-Object {$_.FriendlyName -like "Logitech Demo"}
-```
-But now, let's get the OrgID from the cert, so you don't have to know anything byt the Org Name  
-We already have the cert and we jsut need to get the orgID from the Subject
-```PowerShell
-$orgID = ((($cert | select Subject).Subject) -split (", O="))[1]
-```
+
 ## More Details
 So this is all great, but let's get some more details  
 To get this information, we need to change the string query a little bit more  
