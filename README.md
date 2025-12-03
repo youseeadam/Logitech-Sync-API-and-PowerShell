@@ -72,5 +72,64 @@ We already have the cert and we jsut need to get the orgID from the Subject
 ```PowerShell
 $orgID = ((($cert | select Subject).Subject) -split (", O="))[1]
 ```
+## More Details
+So this is all great, but let's get some more details  
+To get this information, we need to change the string query a little bit more  
+We will start with the query string.  According to the spec file, we can find information on Spot at the following: place.device.sensors  
+However, we also nee the device as well which is held at: place.device  
+So now we need to build our new API query:  
+```PowerShell
+$apiuri = "https://api.sync.logitech.com/v1/org/$OrgID/place?limit=100&projection=place.info,place.occupancy,place.device,place.device.info,place.device.status,place.device.sensors"
+$return = Invoke-RestMethod -URI $apiUri -Method Get -Certificate $cert -Headers @{ "Accept" = "Application/json" }
+```
+This now stors all the sensor data in $return as an object, 
+<img width="1701" height="108" alt="image" src="https://github.com/user-attachments/assets/de98bbc2-08ec-4d49-9c1d-05c704537974" />
+do get this we need to cycle through the object
+```PowerShell
+foreach ($place in $return.places) {
+        # Print room/desk info
+        if ($place.PSObject.Properties.Name -contains 'name') {
+            Write-Host "Place: $($place.name)"
+        }
+        if ($place.PSObject.Properties.Name -contains 'location') {
+            Write-Host "Location: $($place.location)"
+        }
+        if ($place.PSObject.Properties.Name -contains 'occupancy') {
+            Write-Host "Occupancy: $($place.occupancy)"
+        }
+        Write-Host ""
+
+        # Loop devices
+        foreach ($device in $place.devices) {
+            Write-Host "  Device: $($device.name)"
+
+            # Offline check
+            if ($device.PSObject.Properties.Name -contains 'status' -and $device.status -eq 'Offline') {
+                Write-Host "    offline"
+                Write-Host ""
+                continue
+            }
+
+            # Sensor readings
+            if ($device.PSObject.Properties.Name -contains 'sensors' -and $device.sensors) {
+                Write-Host "    CO2: $($device.sensors.co2)"
+                Write-Host "    Temp: $($device.sensors.temperature)"
+                Write-Host "    Humidity: $($device.sensors.humidity)"
+                Write-Host "    Pressure: $($device.sensors.pressure)"
+                Write-Host "    TVOC: $($device.sensors.tvoc)"
+                Write-Host "    VOC Index: $($device.sensors.vocIndex)"
+                Write-Host "    PM2.5: $($device.sensors.pm25)"
+                Write-Host "    PM10: $($device.sensors.pm10)"
+                Write-Host "    Presence: $($device.sensors.presence)"
+                Write-Host "    Timestamp: $($device.sensors.latestTs)"
+                Write-Host ""
+            }
+        }
+        Write-Host "---------------------------------------------"
+    }
+```
+and what you will end up with is something like this.  You can extend this information into writing into a an Event View Log that you could then subscribe to and then take action on.  
+<img width="500" height="340" alt="image" src="https://github.com/user-attachments/assets/183515f2-86b4-402a-b79f-1047e2b4fe12" />
+
 
 
