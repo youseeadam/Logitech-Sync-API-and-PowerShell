@@ -21,7 +21,7 @@ You can find out how to get your certificates and OrgID from this article under 
       $apiuri = "https://api.sync.logitech.com/v1/org/$OrgID/place"
 3. Invoke the request
    ```PowerShell
-      $return = Invoke-RestMethod -URI $apiUrl -Method Get -Certificate $cert -Headers @{ "Accept" = "Application/json" }  
+      $return = Invoke-RestMethod -URI $apiUri -Method Get -Certificate $cert -Headers @{ "Accept" = "Application/json" }  
 4. You will now have a JSON string you can work with, though it will not be easily readable.  So if you want to vew the reuslts to something more reasonable  you can do the following.  THe depth (7) is how many layers deep you want to recieve information.  To get the JSON spec, you can download it from your Sync Portal where you got the GroupID from. '$return | convertFrom-JSON -Depth 7`.
 ## Doing something worhtwhile with the data
 It's great that you can get the information, but let's say you want to know any room that is not healthy.  
@@ -66,6 +66,11 @@ $cert.FriendlyName = "Logitech Demo"
 Now to get the cert, you can change the query to look like this:
 ```PowerShell
 $cert = Get-ChildItem Cert:\LocalMachine\Enterprise\ | Where-Object {$_.FriendlyName -like "Logitech Demo"}
+```
+But now, let's get the OrgID from the cert, so you don't have to know anything byt the Org Name  
+We already have the cert and we jsut need to get the orgID from the Subject
+```PowerShell
+$orgID = ((($cert | select Subject).Subject) -split (", O="))[1]
 ```
 
 
