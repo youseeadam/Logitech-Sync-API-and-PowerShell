@@ -85,7 +85,7 @@ It's great that you can get the information, but let's say you want to know any 
    <img width="1484" height="945" alt="image" src="https://github.com/user-attachments/assets/861e16ba-94c9-49a2-9ec2-f3e2b087d054" />  
 8. So for this example, we will pretend that our rooms healthStatus HAS issues.  We can return that information with the following script. For purposes of example, I am choising to healtStatus of no issues.  In the real world, you would pick -neq "NoIssues"  
 ```PowerShell
-   $json.places | ForEach-Object {
+   $return.places | ForEach-Object {
      $place = $_
      $place.devices | Where-Object { $_.healthStatus -eq "NoIssues" } | ForEach-Object {
          [PSCustomObject]@{
